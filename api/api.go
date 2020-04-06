@@ -3,12 +3,37 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"strings"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	. "github.com/sys520084/namenode/internal"
 )
 
-nameNodeTree := &NodeTree{}
+type NameNodeData struct {
+	datasets map[string]*NodeTree
+	lock     sync.RWMutex
+}
+
+func (d *NameNodeData) AddDataSetData(dataset string, name string, size int) {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
+	// check dataset
+	_, ok := d.datasets[dataset]
+	if ok {
+		d.datasets[dataset].Nodes = AddToTree(d.datasets[dataset].Nodes, strings.Split(name, "/"), size)
+	} else {
+		newdata := make(map[string]*NodeTree)
+		nameNodeTree := &NodeTree{}
+		nameNodeTree.Nodes = AddToTree(nameNodeTree.Nodes, strings.Split(name, "/"), size)
+		newdata[dataset] = nameNodeTree
+		d.datasets = newdata
+	}
+}
+
+//var nameNodeTree = &NodeTree{}
+var nameNodeData = &NameNodeData{}
 
 type UploadNodeForm struct {
 	Name string `form:"name" binding:"required"`
@@ -45,12 +70,12 @@ func SetupRouter() *gin.Engine {
 		} else {
 			size := uploadNodeForm.Size
 			name := uploadNodeForm.Name
-
 			// add node
-			node := NewNode(name, size, isdir)
-			namenodeata.AddDataSetData(dataset, node)
-			nameNodeTree.Nodes = AddToTree(mytree.Nodes, strings.Split(name, "/"), size)
-			
+			//node := NewNode(name, size, isdir)
+			//namenodeata.AddDataSetData(dataset, node)
+			nameNodeData.AddDataSetData(dataset, name, size)
+			//nameNodeTree.Nodes = AddToTree(nameNodeTree.Nodes, strings.Split(name, "/"), size)
+
 		}
 	})
 

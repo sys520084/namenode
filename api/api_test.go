@@ -23,9 +23,19 @@ func TestPingRoute(t *testing.T) {
 func TestAddFile(t *testing.T) {
 	router := SetupRouter()
 	w := httptest.NewRecorder()
-	render := strings.NewReader("name=train&isdir=true&size=5&")
+	render := strings.NewReader("name=train/test/1.jpg&size=5&")
 	req, _ := http.NewRequest("POST", "/namenode/minist/", render)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	router.ServeHTTP(w, req)
 
 }
+
+//func TestGetDirchildren(t *testing.T) {
+//	router := SetupRouter()
+//	w := httptest.NewRecorder()
+//	render := strings.NewReader("dir=train/0&")
+//	req, _ := http.NewRequest("POST", "/namenode/minist/files", render)
+//	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+//	router.ServeHTTP(w, req)
+//
+//}

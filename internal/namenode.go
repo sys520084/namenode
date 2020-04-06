@@ -3,7 +3,6 @@ package internal
 import (
 	//	"encoding/json"
 
-	"fmt"
 	"strings"
 )
 
@@ -27,7 +26,6 @@ func AddToTree(root []Node, names []string, size int) []Node {
 		}
 		if i == len(root) {
 			if len(names) == 1 {
-				fmt.Println(names)
 				root = append(root, Node{Name: names[0], size: size})
 			} else {
 				root = append(root, Node{Name: names[0]})
@@ -52,7 +50,6 @@ func main() {
 		mytree.Nodes = AddToTree(mytree.Nodes, strings.Split(s[i], "/"), 500)
 
 	}
-	fmt.Println(mytree.Nodes)
 	//b, err := json.Marshal(tree)
 	//if err != nil {
 	//	panic(err)
