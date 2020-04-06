@@ -1,97 +1,61 @@
 package internal
 
 import (
-	"sync"
+	//	"encoding/json"
+
+	"fmt"
+	"strings"
 )
 
-type NameNodeDataNode struct {
-	key   string
-	size  int
-	IsDir bool
+type Node struct {
+	Name     string
+	Children []Node
+	size     int
 }
 
-func NewNode(name string, size int, isdir bool) *NameNodeDataNode {
-	node := &NameNodeDataNode{
-		key:   name,
-		size:  size,
-		IsDir: isdir,
-	}
-	return node
+type NodeTree struct {
+	Nodes []Node
 }
 
-type DataSet struct {
-	name  string
-	files []*NameNodeDataNode
-	dirs  []*NameNodeDataNode
-}
-
-type NameNodeData struct {
-	datasets map[string]*DataSet
-	lock     sync.RWMutex
-}
-
-func (d *NameNodeData) AddDataSetData(dataset string, node *NameNodeDataNode) {
-	d.lock.Lock()
-	defer d.lock.Unlock()
-
-	// check dataset
-	_, ok := d.datasets[dataset]
-
-	if ok {
-		d.datasets[dataset].name = dataset
-		if node.IsDir {
-			d.datasets[dataset].dirs = append(d.datasets[dataset].dirs, node)
-		} else {
-			d.datasets[dataset].files = append(d.datasets[dataset].files, node)
-		}
-	} else {
-		nodelist := []*NameNodeDataNode{}
-		newdataset := &DataSet{}
-		newdata := make(map[string]*DataSet)
-		nodelist = append(nodelist, node)
-
-		if node.IsDir {
-			newdataset = &DataSet{
-				name: dataset,
-				dirs: nodelist,
-			}
-		} else {
-			newdataset = &DataSet{
-				name:  dataset,
-				files: nodelist,
+func AddToTree(root []Node, names []string, size int) []Node {
+	if len(names) > 0 {
+		var i int
+		for i = 0; i < len(root); i++ {
+			if root[i].Name == names[0] { //already in tree
+				break
 			}
 		}
-		newdata[dataset] = newdataset
-		d.datasets = newdata
+		if i == len(root) {
+			if len(names) == 1 {
+				fmt.Println(names)
+				root = append(root, Node{Name: names[0], size: size})
+			} else {
+				root = append(root, Node{Name: names[0]})
+			}
+		}
+
+		root[i].Children = AddToTree(root[i].Children, names[1:], size)
+
 	}
+	return root
 }
 
-func (d *NameNodeData) DataSetDirNum(dataset string) (num int) {
-	d.datasets[dataset].name = dataset
-	_, ok := d.datasets[dataset]
-	num = 0
-	if ok {
-		num = len(d.datasets[dataset].dirs)
+func main() {
+	s := []string{
+		"test/1/1.jpg",
+		"test/2/2.jpg",
+		"test/3/3.jpg",
 	}
-	return num
-}
+	//	var tree []Node
+	mytree := &NodeTree{}
+	for i := range s {
+		mytree.Nodes = AddToTree(mytree.Nodes, strings.Split(s[i], "/"), 500)
 
-func (d *NameNodeData) DataSetFileNum(dataset string) (num int) {
-	d.datasets[dataset].name = dataset
-	_, ok := d.datasets[dataset]
-	num = 0
-	if ok {
-		num = len(d.datasets[dataset].files)
 	}
-	return num
-}
-
-func (d *NameNodeData) DataSetNum(dataset string) (num int) {
-	d.datasets[dataset].name = dataset
-	_, ok := d.datasets[dataset]
-	num = 0
-	if ok {
-		num = len(d.datasets[dataset].files) + len(d.datasets[dataset].dirs)
-	}
-	return num
+	fmt.Println(mytree.Nodes)
+	//b, err := json.Marshal(tree)
+	//if err != nil {
+	//	panic(err)
+	//}
+	//fmt.Println(string(b))
 }

@@ -8,12 +8,11 @@ import (
 	. "github.com/sys520084/namenode/internal"
 )
 
-var namenodeata *NameNodeData = new(NameNodeData)
+nameNodeTree := &NodeTree{}
 
 type UploadNodeForm struct {
-	Name  string `form:"name" binding:"required"`
-	IsDir bool   `form:"isdir" binding:"required"`
-	Size  int    `form:"size" binding:"required"`
+	Name string `form:"name" binding:"required"`
+	Size int    `form:"size" binding:"required"`
 }
 
 // Setup Router
@@ -45,22 +44,18 @@ func SetupRouter() *gin.Engine {
 
 		} else {
 			size := uploadNodeForm.Size
-			isdir := uploadNodeForm.IsDir
 			name := uploadNodeForm.Name
 
 			// add node
 			node := NewNode(name, size, isdir)
 			namenodeata.AddDataSetData(dataset, node)
+			nameNodeTree.Nodes = AddToTree(mytree.Nodes, strings.Split(name, "/"), size)
+			
 		}
 	})
 
-	// Get dirs info from dataset at Namenode data
-	r.GET("/namenode/:dataset/dirinfo/", func(c *gin.Context) {
-		c.String(http.StatusOK, "get dir info done")
-	})
-
-	// Get files info from dataset at Namenode data
-	r.GET("/namenode/:dataset/fileinfo/", func(c *gin.Context) {
+	// Get files info from dataset floder at Namenode data
+	r.POST("/namenode/:dataset/fileinfo/", func(c *gin.Context) {
 		c.String(http.StatusOK, "get dir info done")
 	})
 
