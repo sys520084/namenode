@@ -39,12 +39,33 @@ func (d *NameNodeData) PrintData(dataset string) {
 	fmt.Println(d.datasets[dataset])
 }
 
+func (d *NameNodeData) GetPrefixChildren(dataset string, names []string) []Node {
+	_, ok := d.datasets[dataset]
+	if ok {
+		//d.PrintData(dataset)
+		datatree := d.datasets[dataset]
+		for _, v := range names {
+			for _, p := range datatree.Nodes {
+				if p.Name == v {
+					return p.Children
+				}
+			}
+		}
+
+	}
+	return nil
+}
+
 //var nameNodeTree = &NodeTree{}
 var nameNodeData = &NameNodeData{}
 
 type UploadNodeForm struct {
 	Name string `form:"name" binding:"required"`
 	Size int    `form:"size" binding:"required"`
+}
+
+type GetNodeChildrenForm struct {
+	Prefix string `form:"prefix" binding:"required"`
 }
 
 // Setup Router
@@ -62,8 +83,6 @@ func SetupRouter() *gin.Engine {
 	r.GET("/info/", func(c *gin.Context) {
 		c.String(http.StatusOK, "get all nfo done")
 	})
-
-	// Head a dataset
 
 	// Add a node to NameNode data
 	r.POST("/namenode/:dataset/", func(c *gin.Context) {
@@ -83,8 +102,21 @@ func SetupRouter() *gin.Engine {
 	})
 
 	// Get files info from dataset floder at Namenode data
-	r.POST("/namenode/:dataset/fileinfo/", func(c *gin.Context) {
-		c.String(http.StatusOK, "get dir info done")
+	r.POST("/namenode/:dataset/getprefixnode/", func(c *gin.Context) {
+		var getNodeChildrenForm GetNodeChildrenForm
+		dataset := c.Param("dataset")
+
+		if err := c.ShouldBind(&getNodeChildrenForm); err != nil {
+			fmt.Println(err)
+			c.String(http.StatusBadRequest, "%v", err)
+		} else {
+			prefix := getNodeChildrenForm.Prefix
+
+			nodes := nameNodeData.GetPrefixChildren(dataset, strings.Split(prefix, "/"))
+			fmt.Println(nodes)
+			c.String(http.StatusOK, "ok")
+		}
+
 	})
 
 	// return response
