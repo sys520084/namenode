@@ -35,6 +35,7 @@ func (d *NameNodeData) AddDataSetData(dataset string, name string, size int) {
 func (d *NameNodeData) PrintData(dataset string) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
+
 	fmt.Println(d.datasets[dataset])
 }
 
@@ -78,7 +79,6 @@ func SetupRouter() *gin.Engine {
 			name := uploadNodeForm.Name
 			// add node
 			nameNodeData.AddDataSetData(dataset, name, size)
-			nameNodeData.PrintData(dataset)
 		}
 	})
 
