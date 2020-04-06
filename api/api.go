@@ -32,6 +32,12 @@ func (d *NameNodeData) AddDataSetData(dataset string, name string, size int) {
 	}
 }
 
+func (d *NameNodeData) PrintData(dataset string) {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	fmt.Println(d.datasets[dataset])
+}
+
 //var nameNodeTree = &NodeTree{}
 var nameNodeData = &NameNodeData{}
 
@@ -71,11 +77,8 @@ func SetupRouter() *gin.Engine {
 			size := uploadNodeForm.Size
 			name := uploadNodeForm.Name
 			// add node
-			//node := NewNode(name, size, isdir)
-			//namenodeata.AddDataSetData(dataset, node)
 			nameNodeData.AddDataSetData(dataset, name, size)
-			//nameNodeTree.Nodes = AddToTree(nameNodeTree.Nodes, strings.Split(name, "/"), size)
-
+			nameNodeData.PrintData(dataset)
 		}
 	})
 

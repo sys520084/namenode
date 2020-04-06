@@ -24,9 +24,15 @@ func TestAddFile(t *testing.T) {
 	router := SetupRouter()
 	w := httptest.NewRecorder()
 	render := strings.NewReader("name=train/test/1.jpg&size=5&")
+	render1 := strings.NewReader("name=train/test/2.jpg&size=5&")
 	req, _ := http.NewRequest("POST", "/namenode/minist/", render)
+	req1, _ := http.NewRequest("POST", "/namenode/minist/", render1)
+
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req1.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
 	router.ServeHTTP(w, req)
+	router.ServeHTTP(w, req1)
 
 }
 
