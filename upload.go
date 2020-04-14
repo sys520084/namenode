@@ -5,8 +5,10 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -77,7 +79,7 @@ func main() {
 	// upload
 	for _, file := range fileList {
 		fmt.Printf("Waiting for %s successfully upload\n", file)
-		err = AddfileToS3(sess, file, dataset, floderPath)
+		err = go AddfileToS3(sess, file, dataset, floderPath)
 		if err != nil {
 			fmt.Printf("uploading a file err: %s\n", err)
 		} else {
@@ -128,6 +130,15 @@ func AddfileToS3(s *session.Session, fileDir string, datasetName string, prefixp
 		ContentDisposition: aws.String("attachment"),
 		//ServerSideEncryption: aws.String("AES256"),
 	})
+
+	// upload info to namenode
+	namenodeURL := "http://10.60.78.116:8080"
+	UploadURL := namenodeURL + "/" + "namenode" + "/" + datasetName + "/"
+	v := url.Values{}
+	v.Set("name", key)
+	v.Add("size", strconv.FormatInt(size, 10))
+	resp, _ := http.Post(UploadURL, "application/x-www-form-urlencoded", strings.NewReader(v.Encode()))
+	defer resp.Body.Close()
 	return err
 }
 
@@ -135,7 +146,9 @@ func ScanDir(floder string) ([]string, error) {
 	files := []string{}
 
 	e := filepath.Walk(floder, func(path string, f os.FileInfo, err error) error {
-		files = append(files, path)
+		if !f.IsDir() {
+			files = append(files, path)
+		}
 		return err
 	})
 

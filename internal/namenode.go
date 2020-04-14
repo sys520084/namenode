@@ -1,15 +1,18 @@
 package internal
 
+//package main
+
 import (
 	//	"encoding/json"
 
+	"fmt"
 	"strings"
 )
 
 type Node struct {
 	Name     string
 	Children []Node
-	size     int
+	Size     int
 }
 
 type NodeTree struct {
@@ -26,7 +29,7 @@ func AddToTree(root []Node, names []string, size int) []Node {
 		}
 		if i == len(root) {
 			if len(names) == 1 {
-				root = append(root, Node{Name: names[0], size: size})
+				root = append(root, Node{Name: names[0], Size: size})
 			} else {
 				root = append(root, Node{Name: names[0]})
 			}
@@ -38,11 +41,38 @@ func AddToTree(root []Node, names []string, size int) []Node {
 	return root
 }
 
+//var result []Node
+
+func GetNodeChildren(root []Node, names []string) []Node {
+	result := []Node{}
+	if len(names) > 0 {
+		var i int
+		for i = 0; i < len(root); i++ {
+			if root[i].Name == names[0] {
+				break
+			}
+		}
+
+		if len(names) == 1 {
+			//get reesult
+			result = root[i].Children
+			return result
+		}
+		result = GetNodeChildren(root[i].Children, names[1:])
+
+	}
+
+	return result
+
+}
+
 func main() {
 	s := []string{
-		"test/1/1.jpg",
-		"test/2/2.jpg",
-		"test/3/3.jpg",
+		"test/1/3/1.jpg",
+		"test/1/3/2.jpg",
+		"test/1/3/3.jpg",
+		"test/2/5/2.jpg",
+		"test3/3/3.jpg",
 	}
 	//	var tree []Node
 	mytree := &NodeTree{}
@@ -50,6 +80,15 @@ func main() {
 		mytree.Nodes = AddToTree(mytree.Nodes, strings.Split(s[i], "/"), 500)
 
 	}
+	//tmpNode := []Node{}
+	fmt.Println(mytree.Nodes[0].Children)
+	a := "test/1"
+	c := GetNodeChildren(mytree.Nodes, strings.Split(a, "/"))
+	c1 := GetNodeChildren(mytree.Nodes, strings.Split(a, "/"))
+
+	fmt.Println("c is:", c)
+	fmt.Println("c is:", c1)
+	//fmt.Println(mytree.Nodes)
 	//b, err := json.Marshal(tree)
 	//if err != nil {
 	//	panic(err)
