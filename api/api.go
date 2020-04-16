@@ -59,7 +59,7 @@ func (d *NameNodeData) GetPrefixChildrenNodes(dataset string, names string) []No
 			names = strings.TrimRight(names, "/")
 			fmt.Println("geting %v children:", names)
 			nodes := GetNodeChildren(d.datasets[dataset].Nodes, strings.Split(names, "/"))
-			fmt.Println("get children nodes is", nodes)
+			//			fmt.Println("get children nodes is", nodes)
 			return nodes
 		}
 	}
