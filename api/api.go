@@ -32,6 +32,17 @@ type ContentsNode struct {
 	StorageClass string    `json:"storageclass"`
 }
 
+//var nameNodeTree = &NodeTree{}
+var nameNodeData = &NameNodeData{}
+
+func (d *NameNodeData) GetDatasetList() []string {
+	datasetList := []string{}
+	for k, _ := range d.datasets {
+		datasetList = append(datasetList, k)
+	}
+	return datasetList
+}
+
 func (d *NameNodeData) AddDataSetData(dataset string, name string, size int) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
@@ -41,12 +52,15 @@ func (d *NameNodeData) AddDataSetData(dataset string, name string, size int) {
 	if ok {
 		d.datasets[dataset].Nodes = AddToTree(d.datasets[dataset].Nodes, strings.Split(name, "/"), size)
 	} else {
-		newdata := make(map[string]*NodeTree)
+		if d.datasets == nil {
+			d.datasets = make(map[string]*NodeTree)
+		}
+
 		nameNodeTree := &NodeTree{}
 		nameNodeTree.Nodes = AddToTree(nameNodeTree.Nodes, strings.Split(name, "/"), size)
-		newdata[dataset] = nameNodeTree
-		d.datasets = newdata
+		d.datasets[dataset] = nameNodeTree
 	}
+
 }
 
 func (d *NameNodeData) GetPrefixChildrenNodes(dataset string, names string) []Node {
@@ -105,9 +119,6 @@ func (d *NameNodeData) NodeToOutput(nodes []Node, prefix string) ([]PrefixNode, 
 	return dirs, files
 }
 
-//var nameNodeTree = &NodeTree{}
-var nameNodeData = &NameNodeData{}
-
 type UploadNodeForm struct {
 	Name string `form:"name" binding:"required"`
 	Size int    `form:"size" binding:"required"`
@@ -132,6 +143,12 @@ func SetupRouter() *gin.Engine {
 	// dump all info from Namenode
 	r.GET("/info/", func(c *gin.Context) {
 		c.String(http.StatusOK, "get all nfo done")
+	})
+
+	// get datasets list from namenode
+	r.GET("/namenode/", func(c *gin.Context) {
+		datasets := nameNodeData.GetDatasetList()
+		c.JSON(http.StatusOK, gin.H{"Datasets": datasets})
 	})
 
 	// Add a node to NameNode data

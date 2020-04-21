@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -16,6 +17,11 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 )
 
+func myUsage() {
+	fmt.Printf("Usage: %s [OPTIONS] argument ...\n", os.Args[0])
+	flag.PrintDefaults()
+}
+
 // Upload a dataset directory to a new bucket
 // Usage:
 // upload <parm>
@@ -23,15 +29,25 @@ import (
 //        -path <path> //required
 
 func main() {
+	flag.Usage = myUsage
+
 	datasetPtr := flag.String("dataset", "", "dataset to upload to")
 	pathPtr := flag.String("path", "", "path of directory to be synced")
 	flag.Parse()
-	//	if len(os.Args) != 2 {
-	//		exitErrorf("Bucket name missing!\nUsage: %s bucket_name", os.Args[0])
-	//	}
-	//
 	//	bucket := os.Args[1]
+	runtime.GOMAXPROCS(runtime.NumCPU())
+
 	bucket := *datasetPtr
+	dataset := *datasetPtr
+	floderPath := *pathPtr
+
+	if dataset == "" {
+		exitErrorf("Dataset name missing!\nUsage: %s --help", os.Args[0])
+	}
+
+	if floderPath == "" {
+		exitErrorf("local data path missing!\nUsage: %s --help", os.Args[0])
+	}
 	// Initialize a session in us-west-1 that the SDK will use to load
 	// credentials from the shared credentials file ~/.aws/credentials.
 
@@ -52,11 +68,11 @@ func main() {
 	})
 
 	if err != nil {
-		exitErrorf("Unable to create bucket %q, %v", bucket, err)
+		exitErrorf("Unable to create dataset %q, %v", bucket, err)
 	}
 
 	// Wait until bucket is created before finishing
-	fmt.Printf("Waiting for bucket %q to be created...\n", bucket)
+	fmt.Printf("Waiting for dataset %q to be created...\n", bucket)
 
 	err = svc.WaitUntilBucketExists(&s3.HeadBucketInput{
 		Bucket: aws.String(bucket),
@@ -67,8 +83,7 @@ func main() {
 	fmt.Printf("Bucket %q successfully created\n", bucket)
 
 	// scan floder
-	dataset := *datasetPtr
-	floderPath := *pathPtr
+
 	fmt.Printf("waiting for  %q scaning\n", floderPath)
 	fileList, err := ScanDir(floderPath)
 	if err != nil {
@@ -76,15 +91,18 @@ func main() {
 	}
 	fmt.Printf("%q successfully scaned\n", floderPath)
 
-	// upload
+	// paddle upload
+
+	c := make(chan bool, 20)
 	for _, file := range fileList {
 		fmt.Printf("Waiting for %s successfully upload\n", file)
-		err = go AddfileToS3(sess, file, dataset, floderPath)
-		if err != nil {
-			fmt.Printf("uploading a file err: %s\n", err)
-		} else {
-			fmt.Printf("upload %s successfully uploaded\n", file)
-		}
+		c <- true
+		go AddfileToS3(sess, file, dataset, floderPath, c)
+		//	if err != nil {
+		//		fmt.Printf("uploading a file err: %s\n", err)
+		//	} else {
+		//		fmt.Printf("upload %s successfully uploaded\n", file)
+		//	}
 	}
 
 }
@@ -94,7 +112,7 @@ func exitErrorf(msg string, args ...interface{}) {
 	os.Exit(1)
 }
 
-func AddfileToS3(s *session.Session, fileDir string, datasetName string, prefixpath string) error {
+func AddfileToS3(s *session.Session, fileDir string, datasetName string, prefixpath string, c chan bool) error {
 	// open the file for use
 	file, err := os.Open(fileDir)
 	if err != nil {
@@ -139,6 +157,8 @@ func AddfileToS3(s *session.Session, fileDir string, datasetName string, prefixp
 	v.Add("size", strconv.FormatInt(size, 10))
 	resp, _ := http.Post(UploadURL, "application/x-www-form-urlencoded", strings.NewReader(v.Encode()))
 	defer resp.Body.Close()
+	fmt.Println("upload %v is done", UploadURL)
+	<-c
 	return err
 }
 
