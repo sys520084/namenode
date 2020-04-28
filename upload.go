@@ -11,6 +11,8 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -27,6 +29,63 @@ func myUsage() {
 // upload <parm>
 //        -dataset <dataset name> //required
 //        -path <path> //required
+type Work struct {
+	wg   sync.WaitGroup
+	work chan func() //任务队列
+	f	chan string
+}
+var WorkPoolCount = 20
+var SimpleWork = &Work{}
+var DatasetName string
+var Prefixpath string
+var s3Session *session.Session
+// 添加任务
+func (p *Work) Add(fn func()) {
+	p.work <- fn
+}
+
+// 执行
+func (p *Work) Run() {
+	close(p.work)
+	p.wg.Wait()
+}
+
+func NewWorkPoll(workers int, fileList []string) *Work{
+	SimpleWork.wg = sync.WaitGroup{}
+	SimpleWork.work = make(chan func())
+	SimpleWork.f = make(chan string, len(fileList))
+	SimpleWork.wg.Add(workers)
+	// 将文件名放入chan中
+	for _, f := range fileList{
+		SimpleWork.f <- f
+	}
+	//根据指定的并发量去读取管道并执行
+	for i := 0; i < workers; i++ {
+		go func() {
+			defer func() {
+				// 捕获异常 防止waitGroup阻塞
+				if err := recover(); err != nil {
+					fmt.Println(err)
+					SimpleWork.wg.Done()
+				}
+			}()
+			// 从workChannel中取出任务执行
+			for fn := range SimpleWork.work {
+				fn()
+			}
+			SimpleWork.wg.Done()
+		}()
+	}
+	return SimpleWork
+}
+
+func RunWorkPool(fileList []string) {
+	p := NewWorkPoll(WorkPoolCount, fileList)
+	for i := 0; i < len(fileList); i++ {
+		p.Add(AddfileToS3)
+	}
+	p.Run()
+}
 
 func main() {
 	flag.Usage = myUsage
@@ -58,7 +117,11 @@ func main() {
 		S3ForcePathStyle: aws.Bool(true),
 		//LogLevel:         aws.LogLevel(aws.LogDebug | aws.LogDebugWithRequestErrors),
 	})
+	if err != nil {
+		exitErrorf("session.NewSession error: %v", err)
+	}
 
+	s3Session = sess
 	// Create S3 service client
 	svc := s3.New(sess)
 
@@ -89,21 +152,15 @@ func main() {
 	if err != nil {
 		exitErrorf("Error occurred while waiting for floder to be scaned, %v", floderPath)
 	}
+	if len(fileList) <1{
+		exitErrorf("no found file in this path. %v", floderPath)
+	}
 	fmt.Printf("%q successfully scaned\n", floderPath)
 
 	// paddle upload
-
-	c := make(chan bool, 20)
-	for _, file := range fileList {
-		fmt.Printf("Waiting for %s successfully upload\n", file)
-		c <- true
-		go AddfileToS3(sess, file, dataset, floderPath, c)
-		//	if err != nil {
-		//		fmt.Printf("uploading a file err: %s\n", err)
-		//	} else {
-		//		fmt.Printf("upload %s successfully uploaded\n", file)
-		//	}
-	}
+	DatasetName = dataset
+	Prefixpath = floderPath
+	RunWorkPool(fileList)
 
 }
 
@@ -111,35 +168,41 @@ func exitErrorf(msg string, args ...interface{}) {
 	fmt.Fprintf(os.Stderr, msg+"\n", args...)
 	os.Exit(1)
 }
-
-func AddfileToS3(s *session.Session, fileDir string, datasetName string, prefixpath string, c chan bool) error {
+func AddfileToS3() {
+	s := s3Session
+	fileDir := <- SimpleWork.f
 	// open the file for use
 	file, err := os.Open(fileDir)
 	if err != nil {
-		return err
+		fmt.Println("Open file err: ", err.Error())
+		return
 	}
-	defer file.Close()
-
 	// Get file size and read file content info a buffer
-	fileInfo, _ := file.Stat()
+	fileInfo, err := file.Stat()
+	if err != nil{
+		return
+	}
 	fmt.Println(fileInfo.Name())
 	var size int64 = fileInfo.Size()
 	buffer := make([]byte, size)
-	file.Read(buffer)
+	_, err = file.Read(buffer)
+	if err != nil{
+		return
+	}
 
 	//define key in bucket
 	key := ""
 	if fileInfo.IsDir() {
-		key = strings.TrimPrefix(fileDir, prefixpath)
+		key = strings.TrimPrefix(fileDir, Prefixpath)
 		key = key + "/"
 	} else {
-		key = strings.TrimPrefix(fileDir, prefixpath)
+		key = strings.TrimPrefix(fileDir, Prefixpath)
 	}
 
 	// Config settings: this is where you choose the bucket, filename, content-type etc.
 	// of the file you're uploading.
 	_, err = s3.New(s).PutObject(&s3.PutObjectInput{
-		Bucket:             aws.String(datasetName),
+		Bucket:             aws.String(DatasetName),
 		Key:                aws.String(key),
 		ACL:                aws.String("private"),
 		Body:               bytes.NewReader(buffer),
@@ -148,18 +211,23 @@ func AddfileToS3(s *session.Session, fileDir string, datasetName string, prefixp
 		ContentDisposition: aws.String("attachment"),
 		//ServerSideEncryption: aws.String("AES256"),
 	})
-
+	if err != nil{
+		return
+	}
 	// upload info to namenode
 	namenodeURL := "http://10.60.78.116:8080"
-	UploadURL := namenodeURL + "/" + "namenode" + "/" + datasetName + "/"
+	UploadURL := namenodeURL + "/" + "namenode" + "/" + DatasetName + "/"
 	v := url.Values{}
 	v.Set("name", key)
 	v.Add("size", strconv.FormatInt(size, 10))
-	resp, _ := http.Post(UploadURL, "application/x-www-form-urlencoded", strings.NewReader(v.Encode()))
-	defer resp.Body.Close()
+	resp, err:= http.Post(UploadURL, "application/x-www-form-urlencoded", strings.NewReader(v.Encode()))
+	if err != nil{
+		return
+	}
 	fmt.Println("upload %v is done", UploadURL)
-	<-c
-	return err
+	file.Close()
+	resp.Body.Close()
+	time.Sleep(2*time.Second)
 }
 
 func ScanDir(floder string) ([]string, error) {

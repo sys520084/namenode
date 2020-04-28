@@ -1,0 +1,12 @@
+test/
+.idea/*
+*.swp
+*.tar.gz
+*.log
+upload3
+upload
+upfile
+gitversion
+vendor/*
+!vendor/vendor.json
+*.bak
