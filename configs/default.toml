@@ -1,0 +1,11 @@
+# log print debug level
+# default:true
+debug = true
+
+# log JSONFormatter
+# default:false
+# log_json_format = true
+
+# logfile path
+# default:os.Stdout
+# logfile= "/tmp/namenode/namenode.log"

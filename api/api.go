@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	. "github.com/sys520084/namenode/internal"
+	"github.com/sys520084/namenode/internal/middleware"
 )
 
 type NameNodeData struct {
@@ -25,7 +26,7 @@ type NodeOwner struct {
 type ContentsNode struct {
 	ETag         string `json:"etag"`
 	Key          string `json:"key"`
-	Marker       string `json: marker`
+	Marker       string `json:"marker"`
 	Owner        NodeOwner
 	LastModified time.Time `json:"lastModified"`
 	Size         int       `json:"size"`
@@ -133,6 +134,7 @@ type GetNodeChildrenForm struct {
 func SetupRouter() *gin.Engine {
 
 	r := gin.Default()
+	r.Use(middleware.Logger())
 
 	// Ping test
 	r.GET("/ping/", func(c *gin.Context) {
