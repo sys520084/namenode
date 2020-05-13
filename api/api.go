@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	. "github.com/sys520084/namenode/internal"
+	"github.com/sys520084/namenode/internal/log"
 	"github.com/sys520084/namenode/internal/middleware"
 )
 
@@ -64,21 +65,14 @@ func (d *NameNodeData) AddDataSetData(dataset string, name string, size int) {
 
 }
 
-func (d *NameNodeData) GetPrefixChildrenNodes(dataset string, names string) []Node {
-	_, ok := d.datasets[dataset]
-	fmt.Println("starting get prefixchild nodes...")
-	if ok {
-		if names == "/" {
-			return d.datasets[dataset].Nodes
-		} else {
-			names = strings.TrimRight(names, "/")
-			fmt.Println("geting %v children:", names)
-			nodes := GetNodeChildren(d.datasets[dataset].Nodes, strings.Split(names, "/"))
-			//			fmt.Println("get children nodes is", nodes)
-			return nodes
-		}
+func (d *NameNodeData) GetPrefixChildrenNodes(dataset string, names string) ([]Node, bool) {
+	set, ok := d.datasets[dataset]
+	if !ok {
+		return nil, false
 	}
-	return nil
+	names = strings.TrimRight(names, "/")
+	nodes := GetNodeChildren(set.Nodes, strings.Split(names, "/"))
+	return nodes, true
 }
 
 func (d *NameNodeData) NodeToOutput(nodes []Node, prefix string) ([]PrefixNode, []ContentsNode) {
@@ -109,7 +103,7 @@ func (d *NameNodeData) NodeToOutput(nodes []Node, prefix string) ([]PrefixNode, 
 				})
 			} else {
 				files = append(files, ContentsNode{ETag: "\"4ba83b7c4afb769bd584709defc09f68\"",
-					Key:          prefix + nodes[i].Name,
+					Key:          prefix[1:] + nodes[i].Name,
 					Size:         nodes[i].Size,
 					StorageClass: "STANDARD",
 				})
@@ -122,12 +116,24 @@ func (d *NameNodeData) NodeToOutput(nodes []Node, prefix string) ([]PrefixNode, 
 
 type UploadNodeForm struct {
 	Name string `form:"name" binding:"required"`
-	Size int    `form:"size" binding:"required"`
+	Size int    `form:"size"`
 }
 
 type GetNodeChildrenForm struct {
-	Prefix string `form:"prefix" binding:"required"`
-	Marker string `form:"marker" binding:"required"`
+	Prefix *string `form:"prefix" binding:"required"`
+	Marker *string `form:"marker"`
+}
+
+type Prefixnode struct {
+	CommonPrefixes    []PrefixNode
+	Contents          []ContentsNode
+	ContinuationToken string
+	Prefix            *string
+	Marker            *string
+	Delimiter         string
+	IsTruncated       bool
+	MaxKeys           int
+	Name              string
 }
 
 // Setup Router
@@ -176,47 +182,62 @@ func SetupRouter() *gin.Engine {
 		var getNodeChildrenForm GetNodeChildrenForm
 		nodes := []Node{}
 		var nodeprefix string
-		var prefix string
-		var marker string
+		entry := log.GetApiLogEntry(c)
 		dataset := c.Param("dataset")
 
 		if err := c.ShouldBind(&getNodeChildrenForm); err != nil {
-			fmt.Println(err)
+			entry.Errorf("c.ShouldBind failed:%s", err)
 			c.String(http.StatusBadRequest, "%v", err)
-		} else {
-			prefix = getNodeChildrenForm.Prefix
-			marker = getNodeChildrenForm.Marker
-			fmt.Println("prefix request is: ", prefix)
-			fmt.Println("mark request is: ", marker)
-			if prefix == " " && marker == " " {
-				nodes = nameNodeData.GetPrefixChildrenNodes(dataset, "/")
-				nodeprefix = "/"
-			} else {
-				if marker != " " {
-					nodes = nameNodeData.GetPrefixChildrenNodes(dataset, marker)
-					nodeprefix = marker
-				} else {
-					nodes = nameNodeData.GetPrefixChildrenNodes(dataset, prefix)
-					nodeprefix = prefix
-				}
+			return
+		}
+
+		prefix := String(getNodeChildrenForm.Prefix)
+		marker := String(getNodeChildrenForm.Marker)
+		entry.Infof("request dataset:%s prefix:%s mark:%s", dataset, prefix, marker)
+
+		if len(prefix) > 0 {
+			if prefix[0] != '/' {
+				prefix = fmt.Sprintf("/%s", prefix)
 			}
 		}
+
+		if getNodeChildrenForm.Marker != nil {
+			entry.Infof("request marker:%s", marker)
+			nodes, _ = nameNodeData.GetPrefixChildrenNodes(dataset, marker)
+			nodeprefix = marker
+		} else if getNodeChildrenForm.Prefix != nil {
+			entry.Infof("request prefix:%s", prefix)
+			nodes, _ = nameNodeData.GetPrefixChildrenNodes(dataset, prefix)
+			nodeprefix = prefix
+		} else {
+			nodes, _ = nameNodeData.GetPrefixChildrenNodes(dataset, "/")
+			nodeprefix = "/"
+		}
+
 		dirPrefixes, fileContents := nameNodeData.NodeToOutput(nodes, nodeprefix)
 
-		c.JSON(http.StatusOK, gin.H{"CommonPrefixes": dirPrefixes,
-			"Contents":          fileContents,
-			"ContinuationToken": "",
-			"Prefix":            prefix,
-			"Marker":            marker,
-			"Delimiter":         "/",
-			"IsTruncated":       false,
-			//	"KeyCount":          0,
-			"MaxKeys": 1000,
-			"Name":    dataset,
-			//	"StartAfter":        "",
-		})
+		prefixnode := Prefixnode{
+			CommonPrefixes:    dirPrefixes,
+			Contents:          fileContents,
+			ContinuationToken: "",
+			Prefix:            getNodeChildrenForm.Prefix,
+			Marker:            getNodeChildrenForm.Marker,
+			Delimiter:         "/",
+			IsTruncated:       false,
+			MaxKeys:           1000,
+			Name:              dataset,
+		}
+
+		c.JSON(http.StatusOK, prefixnode)
 	})
 
 	// return response
 	return r
+}
+
+func String(p *string) string {
+	if p != nil {
+		return *p
+	}
+	return ""
 }

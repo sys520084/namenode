@@ -32,9 +32,12 @@ func Logger() gin.HandlerFunc {
 		baseEntry := log.UniqApiLogEntry(requestID)
 		path := c.Request.URL.Path
 
-		var body []byte
+		var (
+			body []byte
+			err  error
+		)
 		if c.Request.Body != nil {
-			body, err := ioutil.ReadAll(c.Request.Body)
+			body, err = ioutil.ReadAll(c.Request.Body)
 			if err == nil {
 				c.Request.Body = ioutil.NopCloser(bytes.NewReader(body))
 			}

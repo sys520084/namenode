@@ -1,7 +1,6 @@
 package log
 
 import (
-	"fmt"
 	"math"
 	"os"
 	"path/filepath"
@@ -10,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
@@ -65,16 +65,19 @@ func UniqApiLogEntry(requestID string) *logrus.Entry {
 }
 
 // 获取日志对象
-func GetApiLogEntry(c *gin.Context) (*logrus.Entry, error) {
+func GetApiLogEntry(c *gin.Context) *logrus.Entry {
 	v, exists := c.Get(LOG_KEY)
 	if !exists {
-		return nil, fmt.Errorf("gin.Context.Get not found LOG_KEY")
+		requestID := uuid.NewV1().String()
+		return UniqApiLogEntry(requestID)
 	}
 	entry, ok := v.(*logrus.Entry)
 	if !ok {
-		return nil, fmt.Errorf("value convert *logrus.Entry failed")
+		requestID := uuid.NewV1().String()
+		return UniqApiLogEntry(requestID)
+
 	}
-	return entry, nil
+	return entry
 }
 
 // 获取唯一ID

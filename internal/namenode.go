@@ -1,10 +1,6 @@
 package internal
 
-//package main
-
 import (
-	//	"encoding/json"
-
 	"fmt"
 	"strings"
 )
@@ -46,20 +42,25 @@ func AddToTree(root []Node, names []string, size int) []Node {
 func GetNodeChildren(root []Node, names []string) []Node {
 	result := []Node{}
 	if len(names) > 0 {
-		var i int
+		var (
+			i       int
+			isExist bool
+		)
 		for i = 0; i < len(root); i++ {
 			if root[i].Name == names[0] {
+				isExist = true
 				break
 			}
 		}
 
 		if len(names) == 1 {
-			//get reesult
-			result = root[i].Children
+			if isExist {
+				//get reesult
+				result = root[i].Children
+			}
 			return result
 		}
-		result = GetNodeChildren(root[i].Children, names[1:])
-
+		return GetNodeChildren(root[i].Children, names[1:])
 	}
 
 	return result
