@@ -85,7 +85,7 @@ func (d *NameNodeData) NodeToOutput(nodes []Node, prefix string) ([]PrefixNode, 
 			if prefix == "/" {
 				dirs = append(dirs, PrefixNode{Prefix: nodes[i].Name + "/"})
 			} else {
-				dirs = append(dirs, PrefixNode{Prefix: prefix + nodes[i].Name + "/"})
+				dirs = append(dirs, PrefixNode{Prefix: prefix[1:] + nodes[i].Name + "/"})
 			}
 		}
 
@@ -131,6 +131,7 @@ type Prefixnode struct {
 	Prefix            *string
 	Marker            *string
 	Delimiter         string
+	KeyCount          int
 	IsTruncated       bool
 	MaxKeys           int
 	Name              string
@@ -200,6 +201,11 @@ func SetupRouter() *gin.Engine {
 				prefix = fmt.Sprintf("/%s", prefix)
 			}
 		}
+		if len(marker) > 0 {
+			if marker[0] != '/' {
+				marker = fmt.Sprintf("/%s", marker)
+			}
+		}
 
 		if getNodeChildrenForm.Marker != nil {
 			entry.Infof("request marker:%s", marker)
@@ -225,6 +231,7 @@ func SetupRouter() *gin.Engine {
 			Delimiter:         "/",
 			IsTruncated:       false,
 			MaxKeys:           1000,
+			KeyCount:          len(fileContents),
 			Name:              dataset,
 		}
 
