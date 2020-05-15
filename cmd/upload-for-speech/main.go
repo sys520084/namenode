@@ -110,7 +110,7 @@ func main() {
 
 	// mount point for all speech machines
 	actionURL := "http://xxxxx:9090"
-	UploadURL := namenodeURL + "/" + "namenode" + "/" + datasetName + "/"
+	UploadURL := actionURL + "/" + "namenode" + "/" + "groupname" + "/"
 	v := url.Values{}
 	v.Set("dataset", bucket)
 	v.Add("group", "speech")
