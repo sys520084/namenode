@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -104,6 +105,8 @@ func main() {
 		//		fmt.Printf("upload %s successfully uploaded\n", file)
 		//	}
 	}
+
+	time.Sleep(100 * time.Millisecond)
 
 }
 
