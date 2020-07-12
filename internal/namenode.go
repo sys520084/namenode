@@ -49,8 +49,16 @@ func Copy(root []Node, source, target []string) ([]Node, error) {
 		return root, fmt.Errorf("not found source")
 	}
 
-	if _, isExist := Get(root, target); isExist {
-		return root, fmt.Errorf("target is exist")
+	if sourceNode.Size == 0 || len(sourceNode.Children) != 0 {
+		return root, fmt.Errorf("source is directory, not support")
+	}
+
+	targetNode, isExist := Get(root, target)
+	if isExist {
+		if targetNode.Size == 0 || len(targetNode.Children) != 0 {
+			return root, fmt.Errorf("target is directory, not support")
+		}
+		root = DeleteNode(root, target)
 	}
 
 	root = AddToTree(root, target, sourceNode.Size)
