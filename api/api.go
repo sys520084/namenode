@@ -11,6 +11,7 @@ import (
 	. "github.com/sys520084/namenode/internal"
 	"github.com/sys520084/namenode/internal/log"
 	"github.com/sys520084/namenode/internal/middleware"
+	"github.com/sys520084/namenode/internal/status"
 )
 
 type NameNodeData struct {
@@ -63,6 +64,53 @@ func (d *NameNodeData) AddDataSetData(dataset string, name string, size int) {
 		d.datasets[dataset] = nameNodeTree
 	}
 
+}
+
+func (d *NameNodeData) DeleteNode(dataset string, name string) error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
+	// check dataset
+	if _, ok := d.datasets[dataset]; !ok {
+		return fmt.Errorf("not found '%s' dataset", dataset)
+	}
+
+	d.datasets[dataset].Nodes = DeleteNode(d.datasets[dataset].Nodes, strings.Split(name, "/"))
+	return nil
+}
+
+func (d *NameNodeData) MoveNode(dataset string, source, target string) error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
+	// check dataset
+	if _, ok := d.datasets[dataset]; !ok {
+		return fmt.Errorf("not found '%s' dataset", dataset)
+	}
+
+	tmp, err := Move(d.datasets[dataset].Nodes, SplitPath(source), SplitPath(target))
+	if err != nil {
+		return fmt.Errorf("Move failed:%s", err)
+	}
+	d.datasets[dataset].Nodes = tmp
+	return nil
+}
+
+func (d *NameNodeData) CopyNode(dataset string, source, target string) error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
+	// check dataset
+	if _, ok := d.datasets[dataset]; !ok {
+		return fmt.Errorf("not found '%s' dataset", dataset)
+	}
+
+	tmp, err := Copy(d.datasets[dataset].Nodes, SplitPath(source), SplitPath(target))
+	if err != nil {
+		return fmt.Errorf("Move failed:%s", err)
+	}
+	d.datasets[dataset].Nodes = tmp
+	return nil
 }
 
 func (d *NameNodeData) GetPrefixChildrenNodes(dataset string, names string) ([]Node, bool) {
@@ -124,6 +172,15 @@ type GetNodeChildrenForm struct {
 	Marker *string `form:"marker"`
 }
 
+type DeleteNodeForm struct {
+	Name string `form:"name" binding:"required"`
+}
+
+type MvNodeForm struct {
+	Source string `form:"source" binding:"required"`
+	Target string `form:"target" binding:"required"`
+}
+
 type Prefixnode struct {
 	CommonPrefixes    []PrefixNode
 	Contents          []ContentsNode
@@ -176,6 +233,63 @@ func SetupRouter() *gin.Engine {
 			fmt.Println("upload file name is:", name)
 			nameNodeData.AddDataSetData(dataset, name, size)
 		}
+	})
+
+	// Delete a node to NameNode data
+	r.DELETE("/namenode/:dataset/", func(c *gin.Context) {
+		var form DeleteNodeForm
+		dataset := c.Param("dataset")
+
+		// get node info from query
+		if err := c.ShouldBind(&form); err != nil {
+			c.JSON(http.StatusOK, status.BadRequestStatus(c, fmt.Sprintf("c.ShouldBind failed:%s", err), nil))
+			return
+		}
+
+		if err := nameNodeData.DeleteNode(dataset, form.Name); err != nil {
+			c.JSON(http.StatusOK, status.BadRequestStatus(c, fmt.Sprintf("Delete dataset:'%s' file:'%s' failed:%s", dataset, form.Name, err), nil))
+			return
+		}
+
+		c.JSON(http.StatusOK, status.StatusOK(c, "success", nil))
+	})
+
+	// mv
+	r.POST("/namenode/:dataset/move", func(c *gin.Context) {
+		var form MvNodeForm
+		dataset := c.Param("dataset")
+
+		// get node info from query
+		if err := c.ShouldBind(&form); err != nil {
+			c.JSON(http.StatusOK, status.BadRequestStatus(c, fmt.Sprintf("c.ShouldBind failed:%s", err), nil))
+			return
+		}
+
+		if err := nameNodeData.MoveNode(dataset, form.Source, form.Target); err != nil {
+			c.JSON(http.StatusOK, status.BadRequestStatus(c, fmt.Sprintf("dataset:'%s' Move source:'%s' target:'%s' failed:%s", dataset, form.Source, form.Target, err), nil))
+			return
+		}
+
+		c.JSON(http.StatusOK, status.StatusOK(c, "success", nil))
+	})
+
+	// copy
+	r.POST("/namenode/:dataset/copy", func(c *gin.Context) {
+		var form MvNodeForm
+		dataset := c.Param("dataset")
+
+		// get node info from query
+		if err := c.ShouldBind(&form); err != nil {
+			c.JSON(http.StatusOK, status.BadRequestStatus(c, fmt.Sprintf("c.ShouldBind failed:%s", err), nil))
+			return
+		}
+
+		if err := nameNodeData.CopyNode(dataset, form.Source, form.Target); err != nil {
+			c.JSON(http.StatusOK, status.BadRequestStatus(c, fmt.Sprintf("dataset:'%s' Move source:'%s' target:'%s' failed:%s", dataset, form.Source, form.Target, err), nil))
+			return
+		}
+
+		c.JSON(http.StatusOK, status.StatusOK(c, "success", nil))
 	})
 
 	// Get files info from dataset floder at Namenode data
