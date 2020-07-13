@@ -3,7 +3,6 @@ package middleware
 import (
 	"bytes"
 	"io/ioutil"
-	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -36,6 +35,7 @@ func Logger() gin.HandlerFunc {
 			body []byte
 			err  error
 		)
+
 		if c.Request.Body != nil {
 			body, err = ioutil.ReadAll(c.Request.Body)
 			if err == nil {
@@ -46,10 +46,6 @@ func Logger() gin.HandlerFunc {
 		clientIP := c.ClientIP()
 		clientUserAgent := c.Request.UserAgent()
 		referer := c.Request.Referer()
-		hostname, err := os.Hostname()
-		if err != nil {
-			hostname = "unknow"
-		}
 		baseEntry = baseEntry.WithFields(logrus.Fields{
 			"time":      time.Now().Format(timeFormat),
 			"path":      path,
@@ -58,13 +54,11 @@ func Logger() gin.HandlerFunc {
 			"raw_query": c.Request.URL.RawQuery,
 			"userAgent": clientUserAgent,
 			"referer":   referer,
-			"hostname":  hostname,
 			"clientIP":  clientIP,
 		})
 		if len(body) != 0 {
 			baseEntry = baseEntry.WithField("body", string(body))
 		}
-		baseEntry.Info("http")
 		defer log.DeferLog(baseEntry)
 
 		c.Next()

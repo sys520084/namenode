@@ -197,8 +197,11 @@ type Prefixnode struct {
 // Setup Router
 func SetupRouter() *gin.Engine {
 
-	r := gin.Default()
-	r.Use(middleware.Logger())
+	def := gin.Default()
+
+	r := def.RouterGroup.Group("", middleware.Logger())
+
+	q := def.RouterGroup.Group("")
 
 	// Ping test
 	r.GET("/ping/", func(c *gin.Context) {
@@ -293,7 +296,7 @@ func SetupRouter() *gin.Engine {
 	})
 
 	// Get files info from dataset floder at Namenode data
-	r.POST("/namenode/:dataset/getprefixnode/", func(c *gin.Context) {
+	q.POST("/namenode/:dataset/getprefixnode/", func(c *gin.Context) {
 		var getNodeChildrenForm GetNodeChildrenForm
 		nodes := []Node{}
 		var nodeprefix string
@@ -353,7 +356,7 @@ func SetupRouter() *gin.Engine {
 	})
 
 	// return response
-	return r
+	return def
 }
 
 func String(p *string) string {
