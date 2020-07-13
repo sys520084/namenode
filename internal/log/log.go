@@ -110,7 +110,7 @@ func DeferLog(entry *logrus.Entry) {
 		entry.WithTime(nowTime).Error(err)
 		return
 	}
-	entry.WithTime(nowTime).Debugln("end")
+	entry.WithTime(nowTime).Debugln("http query end")
 }
 
 // 栈日志
