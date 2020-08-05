@@ -79,6 +79,17 @@ func (d *NameNodeData) DeleteNode(dataset string, name string) error {
 	return nil
 }
 
+func (d *NameNodeData) DeleteDataset(dataset string) error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
+	if _, ok := d.datasets[dataset]; ok {
+		delete(d.datasets, dataset)
+	}
+
+	return nil
+}
+
 func (d *NameNodeData) MoveNode(dataset string, source, target string) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
@@ -176,6 +187,10 @@ type DeleteNodeForm struct {
 	Name string `form:"name" binding:"required"`
 }
 
+type DeleteDatasetForm struct {
+	Confirm bool `form:"confirm" binding:"required"`
+}
+
 type MvNodeForm struct {
 	Source string `form:"source" binding:"required"`
 	Target string `form:"target" binding:"required"`
@@ -253,6 +268,27 @@ func SetupRouter() *gin.Engine {
 			c.JSON(http.StatusOK, status.BadRequestStatus(c, fmt.Sprintf("Delete dataset:'%s' file:'%s' failed:%s", dataset, form.Name, err), nil))
 			return
 		}
+
+		c.JSON(http.StatusOK, status.StatusOK(c, "success", nil))
+	})
+
+	// Delete a node to NameNode data
+	r.DELETE("/namenode/:dataset/dataset", func(c *gin.Context) {
+		var form DeleteDatasetForm
+		dataset := c.Param("dataset")
+
+		// get node info from query
+		if err := c.ShouldBind(&form); err != nil {
+			c.JSON(http.StatusOK, status.BadRequestStatus(c, fmt.Sprintf("c.ShouldBind failed:%s", err), nil))
+			return
+		}
+
+		if !form.Confirm {
+			c.JSON(http.StatusOK, status.BadRequestStatus(c, "Confirm is false ", nil))
+			return
+		}
+
+		nameNodeData.DeleteDataset(dataset)
 
 		c.JSON(http.StatusOK, status.StatusOK(c, "success", nil))
 	})
